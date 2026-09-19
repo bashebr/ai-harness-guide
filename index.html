@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Engineering: Bare Model vs. Harness</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --accent-color: #0366d6;
+            --border-color: #e1e4e8;
+            --code-bg: #f6f8fa;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #0d1117;
+                --text-color: #c9d1d9;
+                --card-bg: #161b22;
+                --accent-color: #58a6ff;
+                --border-color: #30363d;
+                --code-bg: #161b22;
+            }
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h1 { margin: 0 0 10px 0; font-size: 2.5rem; }
+        h2 { font-size: 1.8rem; margin-top: 40px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        h3 { font-size: 1.3rem; margin-top: 25px; }
+        p { margin: 1em 0; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        th { background-color: var(--code-bg); }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+            background-color: var(--code-bg);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 85%;
+        }
+        pre {
+            background-color: var(--code-bg);
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+        pre code { padding: 0; background-color: transparent; font-size: 90%; }
+        .footer {
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            color: #6a737d;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Engineering Architectural Guide</h1>
+            <p>Understanding the architecture behind foundational models and the software frameworks that wrap them.</p>
+        </header>
+
+        <section>
+            <h2>Bare Model vs. The Harness</h2>
+            <p>In AI engineering, the <strong>bare model</strong> is the raw, frozen neural network that predicts the next token, whereas the <strong>harness</strong> is the surrounding software infrastructure that turns those raw predictions into a usable, safe application.</p>
+            <p>Think of the bare model as a high-performance <strong>engine</strong>, and the harness as the <strong>entire car</strong> (dashboard, fuel lines, steering wheel, and safety brakes) that allows a driver to actually steer it.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>The Bare Model (The Engine)</th>
+                        <th>The Harness / Framework (The Car)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>What it is</strong></td>
+                        <td>A giant file of mathematical weights (e.g., <code>.safetensors</code> or <code>.bin</code>).</td>
+                        <td>The surrounding Python, TypeScript, or Go code and infrastructure.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Primary Job</strong></td>
+                        <td>Receives a sequence of tokens and predicts the next mathematical token.</td>
+                        <td>Handles user inputs, formats prompts, manages memory, and executes code.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>State</strong></td>
+                        <td>Stateless. It does not remember past messages natively.</td>
+                        <td>Stateful. It stores conversation history in a database or local cache.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Capabilities</strong></td>
+                        <td>Strictly limited to token generation. Cannot access the web or run code.</td>
+                        <td>Can orchestrate tools, search the web, read files, and run code sandboxes.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Example</strong></td>
+                        <td><code>gpt-4o</code>, <code>llama-3-70b</code> raw weight checkpoints.</td>
+                        <td>LangChain, LlamaIndex, OpenAI Assistants API, or a custom wrapper.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <h2>Deep Dive: Core Responsibilities of a Harness</h2>
+            <h3>1. Prompt Templating</h3>
+            <p>The bare model has no native concept of a "chat interface," "user," or "assistant." The harness wraps user inputs into system instruction envelopes (e.g., <code>&lt;|im_start|&gt;system...</code>) to direct the model's behavior safely.</p>
+
+            <h3>2. Context Window Management</h3>
+            <p>When conversations exceed token limits, the harness dynamically truncates, summarizes, or prunes history so the bare model never overflows its fixed maximum token threshold.</p>
+
+            <h3>3. Tool Calling (Function Calling) Loop</h3>
+            <p>When a model decides it needs real-time information, it emits a specific data token. The harness catches this request, pauses generation, runs the actual native API tool (e.g., a SQL query or web search), appends the result to the history, and re-invokes the model.</p>
+        </section>
+
+        <section>
+            <h2>Building Your Own Harness: Starter Architecture</h2>
+            <p>To build a custom harness in Python, your application loop should look similar to this architecture:</p>
+            <pre><code>import openai
+
+class CustomHarness:
+    def __init__(self, system_prompt):
+        self.client = openai.OpenAI()
+        self.memory = [{"role": "system", "content": system_prompt}]
+
+    def chat(self, user_input):
+        # 1. State management (Save history)
+        self.memory.append({"role": "user", "content": user_input})
+        
+        # 2. Invoke the bare model via API
+        response = self.client.chat.completions.create(
+            model="gpt-4o",
+            messages=self.memory
+        )
+        
+        reply = response.choices[0].message.content
+        
+        # 3. Save assistant response to state
+        self.memory.append({"role": "assistant", "content": reply})
+        return reply</code></pre>
+        </section>
+
+        <div class="footer">
+            Built for GitHub Pages deployment. Open Source Architectural Guide.
+        </div>
+    </div>
+</body>
+</html>
