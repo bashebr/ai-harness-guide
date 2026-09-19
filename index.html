@@ -3,177 +3,871 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Engineering: Bare Model vs. Harness</title>
+    <title>AI Harness Guide — Bare Model vs. Harness Architecture</title>
+    <meta name="description" content="A practical guide to understanding the split between LLM weights (the bare model) and the harness that turns predictions into reliable software.">
+    <meta name="theme-color" content="#0f172a">
+    <meta property="og:title" content="AI Harness Guide">
+    <meta property="og:description" content="Learn how production AI systems split the model from the runtime harness — and why it matters.">
+    <meta property="og:type" content="website">
     <style>
         :root {
-            --bg-color: #f8f9fa;
-            --text-color: #212529;
-            --card-bg: #ffffff;
-            --accent-color: #0366d6;
-            --border-color: #e1e4e8;
-            --code-bg: #f6f8fa;
+            --bg-color: #0f172a;
+            --text-color: #e2e8f0;
+            --accent-color: #38bdf8;
+            --accent-muted: #0ea5e9;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --code-bg: #090d16;
+            --success: #34d399;
+            --warning: #fbbf24;
+            --danger: #f87171;
         }
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg-color: #0d1117;
-                --text-color: #c9d1d9;
-                --card-bg: #161b22;
-                --accent-color: #58a6ff;
-                --border-color: #30363d;
-                --code-bg: #161b22;
-            }
-        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
-            line-height: 1.6;
+            line-height: 1.65;
             margin: 0;
-            padding: 40px 20px;
+            padding: 0;
+            display: flex;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
+
+        .sidebar {
+            width: 280px;
+            background-color: #0b0f19;
+            height: 100vh;
+            position: fixed;
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem 1.25rem;
+            overflow-y: auto;
+            z-index: 100;
         }
-        header {
+
+        .sidebar-header {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 20px;
-            margin-bottom: 30px;
         }
-        h1 { margin: 0 0 10px 0; font-size: 2.5rem; }
-        h2 { font-size: 1.8rem; margin-top: 40px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
-        h3 { font-size: 1.3rem; margin-top: 25px; }
-        p { margin: 1em 0; }
+
+        .sidebar-header h2 {
+            font-size: 1.1rem;
+            color: var(--accent-color);
+            margin: 0 0 0.35rem;
+            letter-spacing: 0.02em;
+        }
+
+        .sidebar-header p {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar li { margin-bottom: 0.15rem; }
+
+        .sidebar a {
+            display: block;
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem;
+            padding: 0.45rem 0.65rem;
+            border-radius: 6px;
+            transition: color 0.15s, background 0.15s;
+        }
+
+        .sidebar a:hover {
+            color: var(--accent-color);
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        .sidebar a.active {
+            color: var(--accent-color);
+            background: rgba(56, 189, 248, 0.12);
+            font-weight: 500;
+        }
+
+        .sidebar .nav-group {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #475569;
+            margin: 1.25rem 0 0.5rem 0.65rem;
+        }
+
+        .menu-toggle {
+            display: none;
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 200;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 0.5rem 0.85rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 2.5rem 3rem 4rem;
+            max-width: 920px;
+            width: 100%;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent-color);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.35rem;
+            margin-top: 0;
+            color: #ffffff;
+            line-height: 1.2;
+        }
+
+        .lead {
+            font-size: 1.15rem;
+            color: #94a3b8;
+            margin: 1rem 0 2rem;
+            max-width: 680px;
+        }
+
+        h2 {
+            font-size: 1.65rem;
+            color: #f8fafc;
+            margin-top: 3rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        h3 {
+            font-size: 1.15rem;
+            color: #e2e8f0;
+            margin-top: 1.75rem;
+        }
+
+        p { color: #cbd5e1; }
+
+        a { color: var(--accent-color); }
+        a:hover { color: var(--accent-muted); }
+
+        .callout {
+            background: var(--card-bg);
+            border-left: 3px solid var(--accent-color);
+            border-radius: 0 8px 8px 0;
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+        }
+
+        .callout.warning { border-left-color: var(--warning); }
+        .callout.success { border-left-color: var(--success); }
+
+        .callout p:last-child { margin-bottom: 0; }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 25px 0;
+            margin: 1.5rem 0;
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 0.925rem;
         }
+
         th, td {
-            padding: 12px;
+            padding: 0.85rem 1rem;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
         }
-        th { background-color: var(--code-bg); }
-        ul { padding-left: 20px; }
-        li { margin-bottom: 8px; }
-        code {
-            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
-            background-color: var(--code-bg);
-            padding: 2px 6px;
-            border-radius: 6px;
-            font-size: 85%;
+
+        th {
+            background-color: #111827;
+            color: var(--accent-color);
+            font-weight: 600;
         }
+
+        tr:last-child td { border-bottom: none; }
+
+        .code-block {
+            position: relative;
+            margin: 1.5rem 0;
+        }
+
+        .code-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #111827;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: #94a3b8;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+
+        .copy-btn:hover {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
         pre {
             background-color: var(--code-bg);
-            padding: 16px;
-            border-radius: 8px;
+            padding: 1.25rem;
+            border-radius: 0 0 6px 6px;
             overflow-x: auto;
             border: 1px solid var(--border-color);
+            margin: 0;
         }
-        pre code { padding: 0; background-color: transparent; font-size: 90%; }
-        .footer {
-            margin-top: 60px;
-            padding-top: 20px;
-            border-top: 1px solid var(--border-color);
+
+        code {
+            font-family: "Fira Code", "Cascadia Code", Consolas, Monaco, monospace;
+            font-size: 0.85rem;
+            color: #f472b6;
+        }
+
+        pre code { color: #e2e8f0; }
+
+        .diagram {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.75rem 1.25rem;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .flow-step {
+            background: #334155;
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            border: 1px solid var(--accent-color);
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .flow-step.harness {
+            border-color: var(--success);
+            background: rgba(52, 211, 153, 0.12);
+        }
+
+        .flow-step.model {
+            border-color: #a78bfa;
+            background: rgba(167, 139, 250, 0.12);
+        }
+
+        .flow-arrow { color: #64748b; font-size: 1.1rem; }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin: 1.5rem 0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.25rem;
+        }
+
+        .card h3 { margin-top: 0; font-size: 1rem; }
+
+        .card ul {
+            margin: 0.5rem 0 0;
+            padding-left: 1.2rem;
+            color: #94a3b8;
             font-size: 0.9rem;
-            color: #6a737d;
-            text-align: center;
+        }
+
+        .card li { margin-bottom: 0.35rem; }
+
+        .checklist {
+            list-style: none;
+            padding: 0;
+            margin: 1rem 0;
+        }
+
+        .checklist li {
+            padding: 0.65rem 0 0.65rem 1.75rem;
+            position: relative;
+            color: #cbd5e1;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+        }
+
+        .checklist li::before {
+            content: "☐";
+            position: absolute;
+            left: 0;
+            color: var(--accent-color);
+        }
+
+        .framework-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .framework-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .framework-item strong {
+            display: block;
+            color: #f8fafc;
+            margin-bottom: 0.35rem;
+        }
+
+        .framework-item span {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-right: 0.35rem;
+        }
+
+        .tag.harness { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+        .tag.model { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
+        .tag.both { background: rgba(56, 189, 248, 0.15); color: var(--accent-color); }
+
+        .anti-pattern {
+            background: rgba(248, 113, 113, 0.08);
+            border: 1px solid rgba(248, 113, 113, 0.25);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+        }
+
+        .anti-pattern strong { color: var(--danger); }
+
+        footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+
+        footer a { color: #94a3b8; }
+
+        @media (max-width: 768px) {
+            body { display: block; }
+
+            .menu-toggle { display: block; }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 0;
+                overflow: hidden;
+                position: fixed;
+                top: 0;
+                left: 0;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 0 1.25rem;
+                transition: max-height 0.3s ease, padding 0.3s ease;
+            }
+
+            .sidebar.open {
+                max-height: 100vh;
+                padding: 1.5rem 1.25rem;
+                overflow-y: auto;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 4.5rem 1.25rem 3rem;
+            }
+
+            h1 { font-size: 1.85rem; }
+
+            .two-col { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>AI Engineering Architectural Guide</h1>
-            <p>Understanding the architecture behind foundational models and the software frameworks that wrap them.</p>
-        </header>
 
-        <section>
-            <h2>Bare Model vs. The Harness</h2>
-            <p>In AI engineering, the <strong>bare model</strong> is the raw, frozen neural network that predicts the next token, whereas the <strong>harness</strong> is the surrounding software infrastructure that turns those raw predictions into a usable, safe application.</p>
-            <p>Think of the bare model as a high-performance <strong>engine</strong>, and the harness as the <strong>entire car</strong> (dashboard, fuel lines, steering wheel, and safety brakes) that allows a driver to actually steer it.</p>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation">Menu</button>
 
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>AI Harness Guide</h2>
+            <p>Bare model vs. runtime harness</p>
+        </div>
+        <div class="nav-group">Foundations</div>
+        <ul>
+            <li><a href="#overview">Core paradigm</a></li>
+            <li><a href="#analogy">Mental model</a></li>
+            <li><a href="#comparison">Comparison table</a></li>
+        </ul>
+        <div class="nav-group">How it works</div>
+        <ul>
+            <li><a href="#tool-calling">Tool-calling loop</a></li>
+            <li><a href="#responsibilities">Who owns what</a></li>
+            <li><a href="#implementation">Python blueprint</a></li>
+        </ul>
+        <div class="nav-group">Build better</div>
+        <ul>
+            <li><a href="#frameworks">Real-world examples</a></li>
+            <li><a href="#decision-guide">Decision guide</a></li>
+            <li><a href="#checklist">Production checklist</a></li>
+            <li><a href="#anti-patterns">Anti-patterns</a></li>
+            <li><a href="#resources">Resources</a></li>
+        </ul>
+    </nav>
+
+    <main class="main-content">
+
+        <section id="overview">
+            <span class="hero-badge">Architecture guide</span>
+            <h1>Bare Model vs. Harness</h1>
+            <p class="lead">Production LLM systems split into two layers: the <strong>bare model</strong> (weights that predict tokens) and the <strong>harness</strong> (the runtime that turns predictions into reliable software). Understanding this split is the difference between a demo and a product.</p>
+
+            <div class="callout">
+                <p><strong>Key insight:</strong> The model is a stateless function — <code>f(context) → tokens</code>. Everything else — memory, tools, retries, guardrails, billing, observability — lives in the harness. You own the harness; the vendor owns the weights.</p>
+            </div>
+        </section>
+
+        <section id="analogy">
+            <h2>Mental Model</h2>
+            <p>Think of it like a web browser and a web page:</p>
+
+            <div class="two-col">
+                <div class="card">
+                    <h3><span class="tag model">Bare model</span> The web page</h3>
+                    <ul>
+                        <li>Static content (trained knowledge)</li>
+                        <li>Cannot act on its own</li>
+                        <li>Re-rendered fresh each request</li>
+                        <li>Impressive but inert without a browser</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3><span class="tag harness">Harness</span> The browser</h3>
+                    <ul>
+                        <li>Runs JavaScript, fetches APIs, manages tabs</li>
+                        <li>Enforces same-origin policy and sandboxing</li>
+                        <li>Remembers history and bookmarks (session state)</li>
+                        <li>Turns HTML into an interactive experience</li>
+                    </ul>
+                </div>
+            </div>
+
+            <p>When someone says "the AI searched the web" or "the AI ran your code," the model didn't do that — the harness intercepted a structured output, executed the action, and fed the result back into the next context window.</p>
+        </section>
+
+        <section id="comparison">
+            <h2>Architectural Distinctions</h2>
             <table>
                 <thead>
                     <tr>
-                        <th>Feature</th>
-                        <th>The Bare Model (The Engine)</th>
-                        <th>The Harness / Framework (The Car)</th>
+                        <th>Capability</th>
+                        <th>Bare Model</th>
+                        <th>Harness / Framework</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td><strong>What it is</strong></td>
-                        <td>A giant file of mathematical weights (e.g., <code>.safetensors</code> or <code>.bin</code>).</td>
-                        <td>The surrounding Python, TypeScript, or Go code and infrastructure.</td>
+                        <td><strong>State &amp; memory</strong></td>
+                        <td>Stateless. Each call is an independent forward pass over a context array.</td>
+                        <td>Stateful. Persists sessions, caches, vector stores, and conversation history.</td>
                     </tr>
                     <tr>
-                        <td><strong>Primary Job</strong></td>
-                        <td>Receives a sequence of tokens and predicts the next mathematical token.</td>
-                        <td>Handles user inputs, formats prompts, manages memory, and executes code.</td>
+                        <td><strong>External execution</strong></td>
+                        <td>Isolated inference. Cannot reach networks, filesystems, or databases.</td>
+                        <td>Orchestrates tool calls, sandboxes code, queries APIs, reads files.</td>
                     </tr>
                     <tr>
-                        <td><strong>State</strong></td>
-                        <td>Stateless. It does not remember past messages natively.</td>
-                        <td>Stateful. It stores conversation history in a database or local cache.</td>
+                        <td><strong>Token management</strong></td>
+                        <td>Hard context limit. Truncates or errors when input exceeds window size.</td>
+                        <td>Summarizes, trims, chunks, and retrieves only relevant context.</td>
                     </tr>
                     <tr>
-                        <td><strong>Capabilities</strong></td>
-                        <td>Strictly limited to token generation. Cannot access the web or run code.</td>
-                        <td>Can orchestrate tools, search the web, read files, and run code sandboxes.</td>
+                        <td><strong>Output reliability</strong></td>
+                        <td>Probabilistic text. May hallucinate structure or ignore instructions.</td>
+                        <td>Validates schemas, retries on failure, enforces JSON/tool formats.</td>
                     </tr>
                     <tr>
-                        <td><strong>Example</strong></td>
-                        <td><code>gpt-4o</code>, <code>llama-3-70b</code> raw weight checkpoints.</td>
-                        <td>LangChain, LlamaIndex, OpenAI Assistants API, or a custom wrapper.</td>
+                        <td><strong>Safety &amp; access control</strong></td>
+                        <td>Content filters at inference time (vendor-controlled).</td>
+                        <td>Your auth, rate limits, PII redaction, approval flows, audit logs.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Observability</strong></td>
+                        <td>Token counts and latency from the API provider.</td>
+                        <td>Traces, cost attribution, evals, prompt versioning, A/B tests.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Deployment</strong></td>
+                        <td>Managed endpoint or self-hosted weights (vLLM, llama.cpp).</td>
+                        <td>Your app server, agent loop, queue workers, or IDE integration.</td>
                     </tr>
                 </tbody>
             </table>
         </section>
 
-        <section>
-            <h2>Deep Dive: Core Responsibilities of a Harness</h2>
-            <h3>1. Prompt Templating</h3>
-            <p>The bare model has no native concept of a "chat interface," "user," or "assistant." The harness wraps user inputs into system instruction envelopes (e.g., <code>&lt;|im_start|&gt;system...</code>) to direct the model's behavior safely.</p>
+        <section id="tool-calling">
+            <h2>Tool-Calling Loop</h2>
+            <p>When an LLM needs live data or side effects, the model never executes directly. The harness runs a controlled loop:</p>
 
-            <h3>2. Context Window Management</h3>
-            <p>When conversations exceed token limits, the harness dynamically truncates, summarizes, or prunes history so the bare model never overflows its fixed maximum token threshold.</p>
+            <div class="diagram">
+                <div class="flow-row">
+                    <span class="flow-step">1. User request</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step harness">2. Harness builds context</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step model">3. Model emits tool call</span>
+                </div>
+                <div class="flow-row">
+                    <span class="flow-step harness">4. Harness executes tool</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step harness">5. Result injected into context</span>
+                    <span class="flow-arrow">→</span>
+                    <span class="flow-step model">6. Model generates final answer</span>
+                </div>
+            </div>
 
-            <h3>3. Tool Calling (Function Calling) Loop</h3>
-            <p>When a model decides it needs real-time information, it emits a specific data token. The harness catches this request, pauses generation, runs the actual native API tool (e.g., a SQL query or web search), appends the result to the history, and re-invokes the model.</p>
+            <h3>What the harness must handle</h3>
+            <ul>
+                <li><strong>Parse</strong> — Detect tool-call tokens vs. plain text (native function calling or custom JSON blocks).</li>
+                <li><strong>Authorize</strong> — Check whether this user/session may invoke that tool.</li>
+                <li><strong>Execute</strong> — Run the action with timeouts, retries, and error handling.</li>
+                <li><strong>Serialize</strong> — Format tool output so the model can consume it without blowing the context budget.</li>
+                <li><strong>Loop</strong> — Repeat until the model returns a final answer or a max-iteration guard fires.</li>
+            </ul>
+
+            <div class="callout success">
+                <p><strong>Rule of thumb:</strong> If it touches the outside world, it belongs in the harness — not in the prompt alone.</p>
+            </div>
         </section>
 
-        <section>
-            <h2>Building Your Own Harness: Starter Architecture</h2>
-            <p>To build a custom harness in Python, your application loop should look similar to this architecture:</p>
-            <pre><code>import openai
+        <section id="responsibilities">
+            <h2>Who Owns What</h2>
+            <p>Use this split when designing teams, on-call rotations, and SLAs:</p>
 
-class CustomHarness:
-    def __init__(self, system_prompt):
-        self.client = openai.OpenAI()
-        self.memory = [{"role": "system", "content": system_prompt}]
-
-    def chat(self, user_input):
-        # 1. State management (Save history)
-        self.memory.append({"role": "user", "content": user_input})
-        
-        # 2. Invoke the bare model via API
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=self.memory
-        )
-        
-        reply = response.choices[0].message.content
-        
-        # 3. Save assistant response to state
-        self.memory.append({"role": "assistant", "content": reply})
-        return reply</code></pre>
+            <div class="two-col">
+                <div class="card">
+                    <h3>Model team / vendor</h3>
+                    <ul>
+                        <li>Training data and fine-tunes</li>
+                        <li>Inference latency and uptime</li>
+                        <li>Context window size</li>
+                        <li>Base safety filters</li>
+                        <li>Tool-calling format support</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>Your harness (application) team</h3>
+                    <ul>
+                        <li>Prompt and system message design</li>
+                        <li>Tool definitions and implementations</li>
+                        <li>Session and memory strategy</li>
+                        <li>Evals, regression tests, cost controls</li>
+                        <li>User-facing reliability and UX</li>
+                    </ul>
+                </div>
+            </div>
         </section>
 
-        <div class="footer">
-            Built for GitHub Pages deployment. Open Source Architectural Guide.
-        </div>
-    </div>
+        <section id="implementation">
+            <h2>Minimal Python Blueprint</h2>
+            <p>This skeleton shows how execution stays in application code while the model only proposes actions:</p>
+
+            <div class="code-block">
+                <div class="code-block-header">
+                    <span>harness_loop.py</span>
+                    <button class="copy-btn" data-copy="code-harness">Copy</button>
+                </div>
+                <pre><code id="code-harness">import json
+
+MAX_TOOL_ITERATIONS = 5
+
+# --- Tools live in YOUR codebase, not the model ---
+def fetch_weather(location: str) -> dict:
+    """Mock API — replace with real HTTP call."""
+    db = {"amsterdam": {"temp_c": 16, "condition": "cloudy"}}
+    key = location.lower().strip()
+    return db.get(key, {"temp_c": 22, "condition": "clear"})
+
+TOOLS = {
+    "fetch_weather": {
+        "fn": fetch_weather,
+        "description": "Get current weather for a city",
+    },
+}
+
+def parse_tool_call(text: str) -> dict | None:
+    """Harness validates structure before executing anything."""
+    try:
+        data = json.loads(text)
+        if "tool" in data and data["tool"] in TOOLS:
+            return data
+    except json.JSONDecodeError:
+        pass
+    return None
+
+def run_harness(user_prompt: str, model_client) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Reply with JSON to call a tool: "
+                '{"tool": "fetch_weather", "arg": "Amsterdam"}. '
+                "Otherwise reply in plain text."
+            ),
+        },
+        {"role": "user", "content": user_prompt},
+    ]
+
+    for _ in range(MAX_TOOL_ITERATIONS):
+        response = model_client.generate(messages)
+        tool_call = parse_tool_call(response)
+
+        if not tool_call:
+            return response  # Final natural-language answer
+
+        # Execute in harness — model never runs this
+        tool_fn = TOOLS[tool_call["tool"]]["fn"]
+        result = tool_fn(tool_call.get("arg", ""))
+
+        messages.append({"role": "assistant", "content": response})
+        messages.append({"role": "tool", "content": json.dumps(result)})
+
+    return "Error: max tool iterations exceeded"</code></pre>
+            </div>
+
+            <div class="callout warning">
+                <p><strong>Production additions:</strong> Structured logging, idempotency keys for mutating tools, human-in-the-loop approval for destructive actions, and circuit breakers when tools fail repeatedly.</p>
+            </div>
+        </section>
+
+        <section id="frameworks">
+            <h2>Real-World Examples</h2>
+            <p>Every product below wraps the same pattern — model proposes, harness disposes:</p>
+
+            <div class="framework-grid">
+                <div class="framework-item">
+                    <strong>OpenAI / Anthropic APIs</strong>
+                    <span><span class="tag model">Model</span> Chat completions with native tool schemas</span>
+                </div>
+                <div class="framework-item">
+                    <strong>Cursor / Copilot</strong>
+                    <span><span class="tag harness">Harness</span> IDE context, file edits, terminal, MCP tools</span>
+                </div>
+                <div class="framework-item">
+                    <strong>LangChain / LlamaIndex</strong>
+                    <span><span class="tag harness">Harness</span> Chains, agents, retrieval, memory abstractions</span>
+                </div>
+                <div class="framework-item">
+                    <strong>Claude Code / Codex CLI</strong>
+                    <span><span class="tag harness">Harness</span> Shell access, git, multi-step task loops</span>
+                </div>
+                <div class="framework-item">
+                    <strong>vLLM / Ollama</strong>
+                    <span><span class="tag model">Model</span> Self-hosted inference servers</span>
+                </div>
+                <div class="framework-item">
+                    <strong>Custom microservice</strong>
+                    <span><span class="tag both">Both</span> Your API + chosen model endpoint</span>
+                </div>
+            </div>
+
+            <p>Frameworks are harness accelerators — they don't replace the need to think about ownership, failure modes, and boundaries.</p>
+        </section>
+
+        <section id="decision-guide">
+            <h2>Decision Guide</h2>
+            <p>Ask these questions before adding complexity:</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>If yes →</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Does the answer need live or private data?</td>
+                        <td>Build harness tools (RAG, SQL, internal APIs).</td>
+                    </tr>
+                    <tr>
+                        <td>Will the agent take actions (write files, send emails)?</td>
+                        <td>Harness must sandbox, authorize, and audit every action.</td>
+                    </tr>
+                    <tr>
+                        <td>Do conversations span multiple turns?</td>
+                        <td>Harness owns session storage and context pruning strategy.</td>
+                    </tr>
+                    <tr>
+                        <td>Is correctness more important than creativity?</td>
+                        <td>Harness validates outputs (JSON schema, eval gates, retries).</td>
+                    </tr>
+                    <tr>
+                        <td>Is a single-shot Q&amp;A enough?</td>
+                        <td>A thin API wrapper may suffice — don't over-build.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="checklist">
+            <h2>Production Checklist</h2>
+            <p>Before shipping an agent to users, verify the harness covers:</p>
+
+            <ul class="checklist">
+                <li>Max iteration / cost ceiling per request</li>
+                <li>Timeout on every external tool call</li>
+                <li>Structured logs with trace IDs across model + tool steps</li>
+                <li>Graceful degradation when the model or a tool is down</li>
+                <li>Prompt and tool versioning (rollback without redeploying weights)</li>
+                <li>Eval suite for regressions on critical paths</li>
+                <li>PII handling — redact before sending to third-party APIs</li>
+                <li>Human approval path for irreversible operations</li>
+            </ul>
+        </section>
+
+        <section id="anti-patterns">
+            <h2>Anti-Patterns</h2>
+
+            <div class="anti-pattern">
+                <strong>Treating the prompt as the harness</strong>
+                <p style="margin: 0.5rem 0 0; color: #94a3b8;">"Don't make things up" in the system message doesn't stop hallucination. Validate outputs in code.</p>
+            </div>
+
+            <div class="anti-pattern">
+                <strong>Letting the model construct SQL/shell directly</strong>
+                <p style="margin: 0.5rem 0 0; color: #94a3b8;">Always parameterize queries and run them through an allowlisted executor in the harness.</p>
+            </div>
+
+            <div class="anti-pattern">
+                <strong>Unbounded agent loops</strong>
+                <p style="margin: 0.5rem 0 0; color: #94a3b8;">A runaway tool loop can burn budget in seconds. Set hard caps and detect repetitive failures.</p>
+            </div>
+
+            <div class="anti-pattern">
+                <strong>Ignoring context growth</strong>
+                <p style="margin: 0.5rem 0 0; color: #94a3b8;">Appending full tool outputs forever silently degrades quality and doubles cost. Summarize or retrieve selectively.</p>
+            </div>
+        </section>
+
+        <section id="resources">
+            <h2>Further Reading</h2>
+            <ul>
+                <li><a href="https://platform.openai.com/docs/guides/function-calling" target="_blank" rel="noopener">OpenAI — Function calling</a></li>
+                <li><a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use" target="_blank" rel="noopener">Anthropic — Tool use</a></li>
+                <li><a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">Model Context Protocol (MCP)</a> — Standardized tool/context interface for harnesses</li>
+                <li><a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Anthropic — Building effective agents</a></li>
+            </ul>
+        </section>
+
+        <footer>
+            <p>AI Harness Guide — open documentation for developers building on LLMs.<br>
+            Hosted on <a href="https://pages.github.com/" target="_blank" rel="noopener">GitHub Pages</a>.</p>
+        </footer>
+    </main>
+
+    <script>
+        const menuToggle = document.getElementById('menuToggle');
+        const sidebar = document.getElementById('sidebar');
+        const navLinks = sidebar.querySelectorAll('a[href^="#"]');
+        const sections = [...navLinks].map(link =>
+            document.querySelector(link.getAttribute('href'))
+        ).filter(Boolean);
+
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+            });
+        });
+
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const id = entry.target.id;
+                    navLinks.forEach(link => {
+                        link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
+                    });
+                }
+            });
+        }, { rootMargin: '-30% 0px -60% 0px', threshold: 0 });
+
+        sections.forEach(section => observer.observe(section));
+
+        document.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const code = document.getElementById(btn.dataset.copy);
+                if (!code) return;
+                try {
+                    await navigator.clipboard.writeText(code.textContent);
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+                } catch {
+                    btn.textContent = 'Failed';
+                    setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+                }
+            });
+        });
+    </script>
 </body>
 </html>
